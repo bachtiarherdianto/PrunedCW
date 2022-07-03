@@ -534,9 +534,8 @@ public:
             }
         }
     }
-
-    void two_opt_feasibility(int node1, int node2, bool* feasible, double *modified_cost){
-        *feasible = true;
+    
+    bool two_opt_feasibility(int node1, int node2, double *modified_cost, bool feasible = true){
         route_data* route_1 = this->set_node[node1].route;
         route_data* route_2 = this->set_node[node2].route;
 
@@ -545,10 +544,10 @@ public:
                 std::swap(node1, node2);
             }
 
-            if (node1 == node2){ *feasible = false; }     // two nodes must not same
+            if (node1 == node2){ feasible = false; }     // two nodes must not same
 
             double curr_cost = 0;
-            if (*feasible) {
+            if (feasible) {
                 if (route_1->first_node->key == node1){
                     curr_cost = this->get_cost(route_1->depot, node2);
                 }else{
@@ -565,30 +564,30 @@ public:
 
             *modified_cost += curr_cost - route_1->total_cost;
         } else {
-            if (*feasible){
+            if (feasible){
                 if (route_2->first_node->key == node2) {
                     if (this->set_node[node1].acc_demand + route_2->total_demand_served > this->C){ // new route (2) are not excess vehicle capacity
-                        *feasible = false;
+                        feasible = false;
                     }
 
                     if (route_1->total_demand_served - this->set_node[node1].acc_demand > this->C){ // new route (1) are not excess vehicle capacity
-                        *feasible = false;
+                        feasible = false;
                     }
 
                 } else {
                     if (this->set_node[node1].acc_demand + route_2->total_demand_served - this->set_node[node2].left->acc_demand > this->C){ // new route (2) are not excess vehicle capacity
-                        *feasible = false;
+                        feasible = false;
                     }
 
                     if (this->set_node[node2].acc_demand + route_1->total_demand_served - this->set_node[node1].acc_demand > this->C){ // new route (1) are not excess vehicle capacity
-                        *feasible = false;
+                        feasible = false;
                     }
                 }
             }
 
             double route1_curr_cost;
             double route2_curr_cost;
-            if (*feasible) {
+            if (feasible) {
                 route1_curr_cost = this->set_node[node1].acc_cost + this->get_cost(node1, node2) + route_2->total_cost - this->set_node[node2].acc_cost;
                 if (route_2->first_node->key == node2) {
                     if (route_1->last_node->key == node1){
@@ -605,8 +604,16 @@ public:
                 }
             }
 
-            if (*feasible) { *modified_cost += route1_curr_cost + route2_curr_cost - route_1->total_cost - route_2->total_cost; }
+            if (feasible) { 
+                *modified_cost += route1_curr_cost + route2_curr_cost - route_1->total_cost - route_2->total_cost; 
+            }
         }
+
+        if (feasible){
+            return true;
+        }
+
+        return false;
     }
 
     /* Bachtiar's contribution */
@@ -633,7 +640,6 @@ public:
             auto index_potential_node2 = potential_edge.first.second;
             auto route_temp1 = this->set_node[index_potential_node1].route;
             auto route_temp2 = this->set_node[index_potential_node2].route;
-            auto feasibility = false;
             if (route_temp1->key != route_temp2->key) { // check they must be in different route
                 if (route_temp1->number_of_nodes_contained > 1) {
                     if (route_temp1->first_node->key == index_potential_node1 && route_temp2->first_node->key == index_potential_node2) {
@@ -644,13 +650,11 @@ public:
                 }
 
                 if (route_temp1->last_node->key == index_potential_node1 && route_temp2->first_node->key == index_potential_node2) {
-                    two_opt_feasibility(index_potential_node1, index_potential_node2, &feasibility, &modified_total_cost);
-                    if (feasibility) {
+                    if (two_opt_feasibility(index_potential_node1, index_potential_node2, &modified_total_cost)) {
                         two_opt_inter_segment(&this->set_node[index_potential_node1], &this->set_node[index_potential_node2]);
                     }
                 } else if (route_temp1->first_node->key == index_potential_node1 && route_temp2->last_node->key == index_potential_node2) { // if node i is the last in the route and node j is the first in its route
-                    two_opt_feasibility(index_potential_node2, index_potential_node1, &feasibility, &modified_total_cost);
-                    if (feasibility) {
+                    if (two_opt_feasibility(index_potential_node2, index_potential_node1, &modified_total_cost)) {
                         two_opt_inter_segment(&this->set_node[index_potential_node2], &this->set_node[index_potential_node1]);
                     }
                 }
@@ -667,7 +671,7 @@ public:
         std::cout << "- CW algorithm's solution : distance = " << std::setprecision(12) << this->total_cost << ", no. of routes = " << this->used_route.size() << std::endl;
         std::cout << "- Elapsed time            : " << std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count() << " milliseconds\n";
     }
-};
+ };
 
 
 auto main(int argc, char *argv[]) -> int {
